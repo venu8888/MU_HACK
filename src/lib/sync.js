@@ -55,23 +55,12 @@ export async function getLocalIP() {
   });
 }
 
-// Base URL for the hosted web app.
-// If app is installed → Android intercepts and opens it.
-// If app is NOT installed → browser opens and web app handles it.
-const WEBAPP_BASE = 'https://venu8888.github.io/MU_HACK';
-
 /**
  * Generates the URL for a Personal Sync QR.
  * Encodes our session ID and local IP so the scanner can connect back to us.
  */
 export function buildSyncQRUrl(sessionId, localIP) {
-  const params = new URLSearchParams({
-    action: 'sync',
-    id: sessionId,
-    ip: localIP,
-    port: String(SYNC_PORT),
-  });
-  return `${WEBAPP_BASE}/?${params.toString()}`;
+  return `pulsemesh://sync?id=${encodeURIComponent(sessionId)}&ip=${encodeURIComponent(localIP)}&port=${SYNC_PORT}`;
 }
 
 /**
@@ -79,12 +68,7 @@ export function buildSyncQRUrl(sessionId, localIP) {
  * Encodes compressed alert data directly in the URL.
  */
 export function buildDropQRUrl(compressedData, hopCount = 0) {
-  const params = new URLSearchParams({
-    action: 'drop',
-    d: compressedData,
-    hops: String(hopCount),
-  });
-  return `${WEBAPP_BASE}/?${params.toString()}`;
+  return `pulsemesh://drop?d=${encodeURIComponent(compressedData)}&hops=${hopCount}`;
 }
 
 /**
