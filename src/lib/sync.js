@@ -60,7 +60,7 @@ export async function getLocalIP() {
  * Encodes compressed alert data directly in the URL (QR Ping-Pong).
  */
 export function buildSyncQRUrl(compressedData) {
-  return `pulsemesh://psync?d=${encodeURIComponent(compressedData)}`;
+  return `https://pulsemesh.app/psync?d=${encodeURIComponent(compressedData)}`;
 }
 
 /**
@@ -68,7 +68,7 @@ export function buildSyncQRUrl(compressedData) {
  * Encodes compressed alert data directly in the URL.
  */
 export function buildDropQRUrl(compressedData, hopCount = 0) {
-  return `pulsemesh://drop?d=${encodeURIComponent(compressedData)}&hops=${hopCount}`;
+  return `https://pulsemesh.app/drop?d=${encodeURIComponent(compressedData)}&hops=${hopCount}`;
 }
 
 /**
@@ -77,18 +77,18 @@ export function buildDropQRUrl(compressedData, hopCount = 0) {
 export function parseDeepLink(url) {
   try {
     // Standardize URL parsing
-    const isPulseMesh = url.startsWith('pulsemesh://');
+    const parsed = new URL(url);
+    const isPulseMeshApp = parsed.hostname === 'pulsemesh.app';
+    const isPulseMeshScheme = url.startsWith('pulsemesh://');
+    
     let action = '';
-    let parsed;
-
-    if (isPulseMesh) {
-      // pulsemesh://drop?d=... -> replace with a dummy host so URL() parses it easily
+    if (isPulseMeshScheme) {
       const normalized = url.replace('pulsemesh://', 'http://dummy/');
-      parsed = new URL(normalized);
-      action = parsed.pathname.replace('/', ''); // gets 'drop' or 'sync'
+      const dummyParsed = new URL(normalized);
+      action = dummyParsed.pathname.replace('/', '');
+    } else if (isPulseMeshApp) {
+      action = parsed.pathname.replace('/', '');
     } else {
-      // For web links like https://venu8888.github.io/MU_HACK/?action=drop
-      parsed = new URL(url);
       action = parsed.searchParams.get('action');
     }
 

@@ -30,6 +30,14 @@
                 <data android:scheme="pulsemesh" />
             </intent-filter>
 
+            <!-- Universal App Link: Intercept pulsemesh.app URLs -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="pulsemesh.app" />
+            </intent-filter>
+
             <!-- Universal App Link: Intercept GitHub Pages URLs -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

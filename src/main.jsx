@@ -65,9 +65,10 @@ import { bulkUpsert } from './lib/db';
 export async function handleDeepLink(url) {
   if (!url) return;
   const isPulseMeshScheme = url.startsWith('pulsemesh://');
+  const isPulseMeshApp = url.includes('pulsemesh.app');
   const isWebLink = url.includes('venu8888.github.io/MU_HACK') || url.includes('localhost') || url.includes('127.0.0.1');
   
-  if (!isPulseMeshScheme && !isWebLink) return;
+  if (!isPulseMeshScheme && !isPulseMeshApp && !isWebLink) return;
   
   const link = parseDeepLink(url);
   if (!link) return;
