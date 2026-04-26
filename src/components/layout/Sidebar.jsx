@@ -98,11 +98,15 @@ export default function Sidebar() {
               `group flex items-center justify-between px-4 py-3 transition-all border ${isActive ? 'border-brand/40 bg-brand/5 text-brand' : 'border-transparent text-white/40 hover:text-white'}`
             }
           >
-            <div className="flex items-center gap-3">
-              <Icon size={14} className={({ isActive }) => isActive ? 'text-brand' : 'opacity-40'} />
-              <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
-            </div>
-            <span className="text-[8px] font-mono opacity-20">[{idx < 9 ? `0${idx + 1}` : idx + 1}]</span>
+            {({ isActive }) => (
+              <>
+                <div className="flex items-center gap-3">
+                  <Icon size={14} className={isActive ? 'text-brand' : 'opacity-40'} />
+                  <span className="text-[10px] font-black uppercase tracking-widest">{label}</span>
+                </div>
+                <span className="text-[8px] font-mono opacity-20">[{idx < 9 ? `0${idx + 1}` : idx + 1}]</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
