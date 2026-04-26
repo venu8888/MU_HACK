@@ -32,7 +32,9 @@ export async function upsertMessage(message) {
 
   if (!existing) {
     // Brand new message — store with computed expiry index
+    // hopCount: 0 = locally created, N = relayed N times
     await db.messages.put({
+      hopCount: 0,
       ...message,
       expiry: message.timestamp + message.ttl,
     });
@@ -48,6 +50,10 @@ export async function upsertMessage(message) {
     update.ttl       = message.ttl;
     update.expiry    = message.timestamp + message.ttl;
   }
+  // Keep the LOWEST hop count seen (shortest path wins)
+  if (message.hopCount !== undefined && (existing.hopCount === undefined || message.hopCount < existing.hopCount)) {
+    update.hopCount = message.hopCount;
+  }
   await db.messages.update(message.id, update);
   return existing.timestamp !== message.timestamp ? 'updated' : 'duplicate';
 }
@@ -56,10 +62,18 @@ export async function upsertMessage(message) {
  * Bulk upsert for QR / sync imports.
  * Returns { imported, duplicates, updated }.
  */
-export async function bulkUpsert(messages) {
+/**
+ * Bulk upsert for QR / sync imports.
+ * @param {Array} messages - Messages to import
+ * @param {number} incomingHopCount - Hop count to assign (caller increments it)
+ * Returns { imported, duplicates, updated }.
+ */
+export async function bulkUpsert(messages, incomingHopCount = 1) {
   let imported = 0, duplicates = 0, updated = 0;
   for (const m of messages) {
-    const result = await upsertMessage(m);
+    // Increment hop count as we relay the message
+    const hopCount = Math.max(incomingHopCount, (m.hopCount ?? 0) + 1);
+    const result = await upsertMessage({ ...m, hopCount });
     if (result === 'new')       imported++;
     else if (result === 'updated') updated++;
     else                          duplicates++;

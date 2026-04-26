@@ -71,7 +71,15 @@ export default function PacketCard({ packet, compact = false }) {
             </div>
             <div className="flex items-center gap-1 text-slate-500" title="Hop count from origin">
               <ArrowRightLeft size={12} />
-              <span className="text-[11px]">{packet.hop_count} hops</span>
+              <span className={`text-[11px] font-mono font-semibold ${
+                (packet.hopCount ?? packet.hop_count ?? 0) === 0 
+                  ? 'text-emerald-400' 
+                  : (packet.hopCount ?? packet.hop_count ?? 0) <= 2 
+                    ? 'text-amber-400' 
+                    : 'text-red-400'
+              }`}>
+                {packet.hopCount ?? packet.hop_count ?? 0} hop{(packet.hopCount ?? packet.hop_count ?? 0) !== 1 ? 's' : ''}
+              </span>
             </div>
             <div className="flex items-center gap-1 text-slate-500 capitalize">
               <Radio size={12} />

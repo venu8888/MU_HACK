@@ -54,6 +54,62 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+import { App as CapApp } from '@capacitor/app';
+import { parseDeepLink, syncWithPeerViaHttp } from './lib/sync';
+import { decompressPackets } from './lib/qr';
+import { bulkUpsert } from './lib/db';
+
+// ── Deep Link Handler ─────────────────────────────────────────────────────────
+// When any camera scans a pulsemesh:// QR and opens the app,
+// this listener fires and routes to the correct action.
+async function handleDeepLink(url) {
+  if (!url || !url.startsWith('pulsemesh://')) return;
+  console.log('[DeepLink] Received:', url);
+
+  const link = parseDeepLink(url);
+  if (!link) return;
+
+  if (link.action === 'sync') {
+    // Personal QR scanned — initiate bidirectional sync with peer
+    console.log(`[DeepLink] Sync with peer at ${link.ip}:${link.port}`);
+    const { useAppStore } = await import('./store/useAppStore');
+    const { addLog, sessionId } = useAppStore.getState();
+    addLog(`🔗 QR Sync: connecting to peer at ${link.ip}...`, 'info');
+    
+    const result = await syncWithPeerViaHttp(link.ip, link.port, sessionId);
+    if (result.success) {
+      addLog(`✅ Sync complete — got ${result.imported} new alerts, sent ${result.sent}`, 'success');
+      // Refresh the message list in the store
+      useAppStore.getState().loadMessages?.();
+    } else {
+      addLog(`⚠️ Sync failed: ${result.error}`, 'error');
+    }
+  }
+
+  if (link.action === 'drop') {
+    // Public Drop QR scanned — import alerts from encoded data
+    console.log('[DeepLink] Importing public drop data');
+    try {
+      const { useAppStore } = await import('./store/useAppStore');
+      const { addLog } = useAppStore.getState();
+      addLog('📦 Public QR scanned — importing alerts...', 'info');
+      
+      const packets = decompressPackets(link.data);
+      const result = await bulkUpsert(packets, link.hops + 1);
+      addLog(`✅ Imported ${result.imported} new alerts (hop ${link.hops + 1})`, 'success');
+      useAppStore.getState().loadMessages?.();
+    } catch (err) {
+      console.error('[DeepLink] Drop import failed:', err);
+    }
+  }
+}
+
+// Listen for deep links when app is already running
+CapApp.addListener('appUrlOpen', ({ url }) => handleDeepLink(url));
+
+// Handle deep link if app was cold-started via QR scan
+CapApp.getLaunchUrl().then(({ url } = {}) => { if (url) handleDeepLink(url); }).catch(() => {});
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
