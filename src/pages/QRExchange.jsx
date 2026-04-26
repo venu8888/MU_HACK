@@ -100,7 +100,7 @@ export default function QRExchange() {
     }
 
     generate();
-  }, [mode, messages, selectedIds, sessionId, localIP, addLog]);
+  }, [mode, messages, selectedIds, sessionId, addLog]);
 
   // --- Fullscreen view ---
   if (fullscreen) {
