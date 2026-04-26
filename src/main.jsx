@@ -60,14 +60,19 @@ import { decompressPackets } from './lib/qr';
 import { bulkUpsert } from './lib/db';
 
 // ── Deep Link Handler ─────────────────────────────────────────────────────────
-// When any camera scans a pulsemesh:// QR and opens the app,
+// When any camera scans a QR and opens the app (native or web),
 // this listener fires and routes to the correct action.
-async function handleDeepLink(url) {
-  if (!url || !url.startsWith('pulsemesh://')) return;
-  console.log('[DeepLink] Received:', url);
-
+export async function handleDeepLink(url) {
+  if (!url) return;
+  const isPulseMeshScheme = url.startsWith('pulsemesh://');
+  const isWebLink = url.includes('venu8888.github.io/MU_HACK') || url.includes('localhost') || url.includes('127.0.0.1');
+  
+  if (!isPulseMeshScheme && !isWebLink) return;
+  
   const link = parseDeepLink(url);
   if (!link) return;
+  
+  console.log('[DeepLink] Received:', url);
 
   if (link.action === 'sync') {
     // Personal QR scanned — initiate bidirectional sync with peer
@@ -107,8 +112,14 @@ async function handleDeepLink(url) {
 // Listen for deep links when app is already running
 CapApp.addListener('appUrlOpen', ({ url }) => handleDeepLink(url));
 
-// Handle deep link if app was cold-started via QR scan
+// Handle deep link if app was cold-started via QR scan (Native)
 CapApp.getLaunchUrl().then(({ url } = {}) => { if (url) handleDeepLink(url); }).catch(() => {});
+
+// Handle Web Universal Links (If app opened in browser)
+if (window.location.search) {
+  // Add a slight delay to ensure store is ready
+  setTimeout(() => handleDeepLink(window.location.href), 500);
+}
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

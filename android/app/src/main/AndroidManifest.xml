@@ -30,6 +30,14 @@
                 <data android:scheme="pulsemesh" />
             </intent-filter>
 
+            <!-- Universal App Link: Intercept GitHub Pages URLs -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="venu8888.github.io" android:pathPrefix="/MU_HACK" />
+            </intent-filter>
+
         </activity>
 
         <provider
