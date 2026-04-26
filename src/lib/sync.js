@@ -57,10 +57,10 @@ export async function getLocalIP() {
 
 /**
  * Generates the URL for a Personal Sync QR.
- * Encodes our session ID and local IP so the scanner can connect back to us.
+ * Encodes compressed alert data directly in the URL (QR Ping-Pong).
  */
-export function buildSyncQRUrl(sessionId, localIP) {
-  return `pulsemesh://sync?id=${encodeURIComponent(sessionId)}&ip=${encodeURIComponent(localIP)}&port=${SYNC_PORT}`;
+export function buildSyncQRUrl(compressedData) {
+  return `pulsemesh://psync?d=${encodeURIComponent(compressedData)}`;
 }
 
 /**
@@ -92,12 +92,10 @@ export function parseDeepLink(url) {
       action = parsed.searchParams.get('action');
     }
 
-    if (action === 'sync') {
+    if (action === 'psync') {
       return {
-        action: 'sync',
-        sessionId: parsed.searchParams.get('id'),
-        ip: parsed.searchParams.get('ip'),
-        port: parseInt(parsed.searchParams.get('port') || '5100'),
+        action: 'psync',
+        data: parsed.searchParams.get('d'),
       };
     }
 

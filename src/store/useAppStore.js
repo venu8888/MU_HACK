@@ -49,6 +49,11 @@ export const useAppStore = create(
       lastSyncTime:     null,
       totalSent:        0,
       totalReceived:    0,
+      
+      // ── QR Return Sync Flow ──
+      returnSyncActive: false,
+      triggerReturnSync: () => set({ returnSyncActive: true }),
+      clearReturnSync: () => set({ returnSyncActive: false }),
 
       // ── Core Actions ─────────────────────────────────────────────
       

@@ -30,15 +30,18 @@ export default function QRExchange() {
   const [qrValue, setQrValue] = useState('');
   const [fullscreen, setFullscreen] = useState(false);
   const [bundleStats, setBundleStats] = useState({ count: 0, size: 0 });
-  const [localIP, setLocalIP] = useState('detecting...');
+  
+  const { returnSyncActive, clearReturnSync } = useAppStore();
 
-  // Detect local IP on mount
+  // If return sync is triggered, automatically show the return QR
   useEffect(() => {
-    getLocalIP().then(ip => {
-      setLocalIP(ip);
-      addLog(`Local IP detected: ${ip}`, 'info');
-    });
-  }, [addLog]);
+    if (returnSyncActive) {
+      setMode('personal');
+      setFullscreen(true);
+    }
+  }, [returnSyncActive]);
+
+
 
   const toggleSelection = (id) => {
     const next = new Set(selectedIds);
@@ -57,22 +60,11 @@ export default function QRExchange() {
         return pA !== pB ? pB - pA : b.timestamp - a.timestamp;
       });
 
-      if (mode === 'personal') {
-        // Personal QR: just encode session ID + local IP
-        // The other device connects to us and we exchange Bloom filters
-        const url = buildSyncQRUrl(sessionId, localIP);
-        setQrValue(url);
-        setBundleStats({ count: messages.length, size: url.length });
-        if (localIP !== 'detecting...') {
-          addLog(`Personal sync QR ready — ${messages.length} alerts available`, 'success');
-        }
-        return;
-      }
-
-      // Public Drop: encode compressed alerts in the URL
+      // Both modes now encode alerts. Personal encodes as 'psync', Public as 'drop'
+      // We take the selected ones, or the top 5 by priority if none selected
       let filtered = selectedIds.size > 0
         ? sorted.filter(m => selectedIds.has(m.id)).slice(0, 10)
-        : sorted.slice(0, 5); // Default to top 5 for size reasons
+        : sorted.slice(0, 5);
 
       if (filtered.length === 0) {
         setQrValue('');
@@ -82,18 +74,26 @@ export default function QRExchange() {
 
       try {
         let compressed = compressPackets(filtered);
-
-        // Keep trimming until it fits in a scannable QR (<2KB)
         while (compressed.length > 1800 && filtered.length > 1) {
           filtered.pop();
           compressed = compressPackets(filtered);
         }
 
-        const maxHop = Math.max(...filtered.map(m => m.hopCount ?? 0));
-        const url = buildDropQRUrl(compressed, maxHop);
+        let url;
+        if (mode === 'personal') {
+          // If this is a return sync (triggered by scanning a psync), we generate a regular drop 
+          // so the original phone doesn't get stuck in an infinite ping-pong loop.
+          url = returnSyncActive ? buildDropQRUrl(compressed, 0) : buildSyncQRUrl(compressed);
+        } else {
+          const maxHop = Math.max(...filtered.map(m => m.hopCount ?? 0));
+          url = buildDropQRUrl(compressed, maxHop);
+        }
+
         setQrValue(url);
         setBundleStats({ count: filtered.length, size: url.length });
-        addLog(`Public drop QR: ${filtered.length} alerts encoded (${url.length}b)`, 'success');
+        if (!returnSyncActive) {
+          addLog(`${mode === 'personal' ? 'Personal sync' : 'Public drop'} QR ready (${url.length}b)`, 'success');
+        }
       } catch (err) {
         addLog(`QR generation failed: ${err.message}`, 'error');
       }
@@ -110,41 +110,69 @@ export default function QRExchange() {
           variant="ghost"
           icon={X}
           className="absolute top-4 right-4 text-slate-400 hover:text-white"
-          onClick={() => setFullscreen(false)}
+          onClick={() => {
+            setFullscreen(false);
+            if (returnSyncActive) clearReturnSync();
+          }}
         >
           Close
         </Button>
 
         <div className="text-center mb-2">
-          <h2 className="text-2xl font-bold text-white tracking-wide">
-            {mode === 'personal' ? '🔗 Personal Sync QR' : '📡 Public Drop QR'}
-          </h2>
-          <p className="text-slate-400 text-sm mt-1">
-            {mode === 'personal'
-              ? 'Scan with camera to sync alerts with this device'
-              : 'Scan with any camera to import these alerts'}
-          </p>
-        </div>
-
-        <div className="bg-white p-6 rounded-3xl shadow-2xl">
-          {qrValue ? (
-            <QRCodeSVG
-              value={qrValue}
-              size={Math.min(window.innerWidth - 80, window.innerHeight - 280, 480)}
-              level="M"
-            />
-          ) : (
-            <div className="w-64 h-64 flex items-center justify-center text-slate-500 text-sm">
-              No alerts to encode
+          {returnSyncActive ? (
+            <div className="animate-in fade-in zoom-in duration-500">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                Step 2: Complete Exchange
+              </div>
+              <h2 className="text-3xl font-black text-white tracking-tight mb-2">
+                Scan Back to Sync
+              </h2>
+              <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">
+                You've received their alerts. Now let them scan your screen to give them yours.
+              </p>
             </div>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold text-white tracking-wide">
+                {mode === 'personal' ? '🔗 Personal Sync' : '📡 Public Drop'}
+              </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                {mode === 'personal'
+                  ? 'High-integrity bidirectional exchange'
+                  : 'One-way broadcast to any nearby device'}
+              </p>
+            </>
           )}
         </div>
 
+        <div className="relative group">
+          {/* Decorative glow for sync active */}
+          {returnSyncActive && (
+            <div className="absolute -inset-4 bg-emerald-500/20 blur-2xl rounded-full animate-pulse" />
+          )}
+          
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
+            {qrValue ? (
+              <QRCodeSVG
+                value={qrValue}
+                size={Math.min(window.innerWidth - 100, window.innerHeight - 320, 400)}
+                level="M"
+                includeMargin={true}
+              />
+            ) : (
+              <div className="w-64 h-64 flex items-center justify-center text-slate-500 text-sm">
+                No alerts to encode
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="text-center space-y-2 max-w-xs">
-          {mode === 'personal' && (
+          {mode === 'personal' && !returnSyncActive && (
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-300">
-              <Wifi className="inline mr-1" size={12} />
-              Both devices must be on the <strong>same Wi-Fi or hotspot</strong>
+              <Smartphone className="inline mr-1" size={12} />
+              Fully offline bidirectional exchange
             </div>
           )}
           {mode === 'public' && (
@@ -234,14 +262,14 @@ export default function QRExchange() {
                         <ol className="text-xs text-slate-400 space-y-1.5 list-decimal list-inside">
                           <li>Open camera on the <strong className="text-white">other phone</strong></li>
                           <li>Point it at this QR code</li>
-                          <li>Tap the link to open PulseMesh</li>
-                          <li>Both devices will <strong className="text-white">automatically exchange</strong> missing alerts</li>
+                          <li>PulseMesh will import your alerts</li>
+                          <li><strong className="text-white">Scan them back</strong> to complete the exchange!</li>
                         </ol>
                       </div>
-                      <div className="flex items-start gap-2 bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-                        <Wifi size={14} className="text-amber-400 shrink-0 mt-0.5" />
-                        <p className="text-[11px] text-amber-400">
-                          Both phones must be on the <strong>same Wi-Fi or hotspot</strong> (IP: <span className="font-mono">{localIP}</span>)
+                      <div className="flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+                        <ArrowLeftRight size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-emerald-400">
+                          100% Offline. Uses <strong>QR Ping-Pong</strong> to exchange data without Wi-Fi or Bluetooth.
                         </p>
                       </div>
                     </div>
@@ -278,44 +306,42 @@ export default function QRExchange() {
             </CardBody>
           </Card>
 
-          {/* Message Selection (Public mode only) */}
-          {mode === 'public' && (
-            <Card>
-              <CardHeader className="flex justify-between items-center">
-                <span className="font-semibold text-slate-200">Select Alerts to Broadcast (Max 10)</span>
-                {selectedIds.size === 0 && <span className="text-xs text-slate-500">Auto-picking top priority</span>}
-              </CardHeader>
-              <CardBody className="p-0">
-                <div className="max-h-64 overflow-y-auto divide-y divide-slate-800">
-                  {messages.length === 0 && (
-                    <div className="p-4 text-center text-sm text-slate-500">No active messages to share</div>
-                  )}
-                  {messages.map(m => (
-                    <div
-                      key={m.id}
-                      className={`flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-slate-800/50 ${selectedIds.has(m.id) ? 'bg-slate-800/80' : ''}`}
-                      onClick={() => toggleSelection(m.id)}
-                    >
-                      {selectedIds.has(m.id)
-                        ? <CheckSquare className="text-purple-400 shrink-0" size={16} />
-                        : <Square className="text-slate-500 shrink-0" size={16} />
-                      }
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-slate-200 truncate">
-                          {m.type.toUpperCase()}: {m.content}
-                        </div>
-                        <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
-                          <span>{m.hopCount ?? 0} hops</span>
-                          <span>·</span>
-                          <span>TTL: {Math.max(0, Math.floor(((m.timestamp + m.ttl) - Date.now()) / 60000))} min</span>
-                        </div>
+          {/* Message Selection (Available in both modes now) */}
+          <Card>
+            <CardHeader className="flex justify-between items-center">
+              <span className="font-semibold text-slate-200">Select Alerts to {mode === 'personal' ? 'Sync' : 'Broadcast'} (Max 10)</span>
+              {selectedIds.size === 0 && <span className="text-xs text-slate-500">Auto-picking top priority</span>}
+            </CardHeader>
+            <CardBody className="p-0">
+              <div className="max-h-64 overflow-y-auto divide-y divide-slate-800">
+                {messages.length === 0 && (
+                  <div className="p-4 text-center text-sm text-slate-500">No active messages to share</div>
+                )}
+                {messages.map(m => (
+                  <div
+                    key={m.id}
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors hover:bg-slate-800/50 ${selectedIds.has(m.id) ? 'bg-slate-800/80' : ''}`}
+                    onClick={() => toggleSelection(m.id)}
+                  >
+                    {selectedIds.has(m.id)
+                      ? <CheckSquare className="text-purple-400 shrink-0" size={16} />
+                      : <Square className="text-slate-500 shrink-0" size={16} />
+                    }
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-200 truncate">
+                        {m.type.toUpperCase()}: {m.content}
+                      </div>
+                      <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-2">
+                        <span>{m.hopCount ?? 0} hops</span>
+                        <span>·</span>
+                        <span>TTL: {Math.max(0, Math.floor(((m.timestamp + m.ttl) - Date.now()) / 60000))} min</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          )}
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
         </div>
 
         {/* SIDE PANEL */}
@@ -338,12 +364,7 @@ export default function QRExchange() {
                   <span className="text-slate-500">QR Size</span>
                   <span className="text-slate-200 font-mono">{bundleStats.size}b</span>
                 </div>
-                {mode === 'personal' && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Your IP</span>
-                    <span className="text-emerald-400 font-mono text-[11px]">{localIP}</span>
-                  </div>
-                )}
+
               </div>
             </CardBody>
           </Card>

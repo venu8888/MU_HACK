@@ -74,20 +74,27 @@ export async function handleDeepLink(url) {
   
   console.log('[DeepLink] Received:', url);
 
-  if (link.action === 'sync') {
-    // Personal QR scanned — initiate bidirectional sync with peer
-    console.log(`[DeepLink] Sync with peer at ${link.ip}:${link.port}`);
-    const { useAppStore } = await import('./store/useAppStore');
-    const { addLog, sessionId } = useAppStore.getState();
-    addLog(`🔗 QR Sync: connecting to peer at ${link.ip}...`, 'info');
-    
-    const result = await syncWithPeerViaHttp(link.ip, link.port, sessionId);
-    if (result.success) {
-      addLog(`✅ Sync complete — got ${result.imported} new alerts, sent ${result.sent}`, 'success');
-      // Refresh the message list in the store
-      useAppStore.getState().loadMessages?.();
-    } else {
-      addLog(`⚠️ Sync failed: ${result.error}`, 'error');
+  if (link.action === 'psync') {
+    // Personal QR scanned — import and prepare to send back (Ping-Pong)
+    console.log(`[DeepLink] Personal Sync payload received`);
+    try {
+      const { useAppStore } = await import('./store/useAppStore');
+      const { addLog, triggerReturnSync } = useAppStore.getState();
+      addLog('🔄 Personal QR scanned — processing alerts...', 'info');
+      
+      if (link.data) {
+        const packets = decompressPackets(link.data);
+        const result = await bulkUpsert(packets, 1);
+        addLog(`✅ Sync Step 1: Imported ${result.imported} alerts.`, 'success');
+        useAppStore.getState().loadMessages?.();
+      }
+      
+      // Trigger the UI to show the return QR code
+      triggerReturnSync();
+      // Redirect to the QR page to show the return QR code
+      window.location.href = '/qr';
+    } catch (err) {
+      console.error('[DeepLink] Personal Sync failed:', err);
     }
   }
 
