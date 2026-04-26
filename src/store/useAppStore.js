@@ -44,6 +44,7 @@ export const useAppStore = create(
       bridgeConnected: false,
       assignedIp: null,
       bridgeIp: null,
+      bridgeServerUrl: null, // User-defined bridge IP
 
       // ── Sync stats ──
       lastSyncTime:     null,
@@ -177,21 +178,42 @@ export const useAppStore = create(
 
       // ── Bridge Discovery ─────────────────────────────────────────
 
-      connectToBridge: () => {
-        if (_socket) return;
-        const { sessionId, addLog } = get();
-        _socket = io(window.location.origin);
+      connectToBridge: (customIp = null) => {
+        const { sessionId, addLog, bridgeServerUrl } = get();
+        
+        // If we have a custom IP, use it. Otherwise use the current origin.
+        const url = customIp ? `http://${customIp}:3000` : (bridgeServerUrl || window.location.origin);
+        
+        if (_socket) {
+          _socket.disconnect();
+          _socket = null;
+        }
 
-        _socket.on('connect', () => {
-          set({ bridgeConnected: true });
+        console.log(`[Mesh] Connecting to bridge at ${url}`);
+        _socket = io(url, { reconnectionAttempts: 5 });
+
+        _socket.on('connect', async () => {
+          set({ bridgeConnected: true, bridgeServerUrl: url });
           _socket.emit('join', sessionId);
-          addLog('PulseMesh Bridge: Online', 'success');
+          addLog(`Bridge Link: Active (${url})`, 'success');
+          
+          // AUTO-SYNC: Push our existing messages to the bridge immediately
+          const messages = await db.messages.toArray();
+          if (messages.length > 0) {
+            _socket.emit('mesh_update', messages);
+          }
+        });
+
+        _socket.on('mesh_sync', async (messages) => {
+          if (messages && messages.length > 0) {
+            await get().syncMessages(messages, 'bridge-mesh');
+          }
         });
 
         _socket.on('assigned_ip', (ip) => set({ assignedIp: ip }));
         _socket.on('bridge_ip', (ip) => {
           set({ bridgeIp: ip });
-          addLog(`Bridge identified network IP: ${ip}`, 'info');
+          addLog(`Bridge network IP: ${ip}`, 'info');
         });
         
         _socket.on('peers_update', (peers) => {
@@ -207,6 +229,11 @@ export const useAppStore = create(
           } else if (signal.type === 'answer') {
             await _webrtc.processAnswer(signal.data);
           }
+        });
+
+        _socket.on('connect_error', () => {
+          set({ bridgeConnected: false });
+          addLog('Bridge searching...', 'info');
         });
 
         _socket.on('disconnect', () => set({ bridgeConnected: false, nearbyPeers: [] }));
@@ -271,6 +298,9 @@ export const useAppStore = create(
         get().addLog('BLE scan stopped.', 'info');
       },
     }),
-    { name: 'pulsemesh-storage', partialize: (state) => ({ sessionId: state.sessionId }) }
+    { name: 'pulsemesh-storage', partialize: (state) => ({ 
+      sessionId: state.sessionId,
+      bridgeServerUrl: state.bridgeServerUrl 
+    }) }
   )
 );

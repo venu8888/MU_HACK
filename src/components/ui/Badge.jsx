@@ -1,27 +1,27 @@
 export default function Badge({ children, color = 'blue', className = '', dot = false }) {
   const colors = {
-    blue: 'bg-white/5 text-white border-white/20',
-    red: 'bg-red-500/10 text-red-500 border-red-500/20',
-    green: 'bg-brand/10 text-brand border-brand/20',
-    amber: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    cyan: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
-    violet: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
-    slate: 'bg-white/5 text-white/40 border-white/10',
+    blue: 'bg-blue-500/15 text-blue-400 border-blue-500/25',
+    red: 'bg-red-500/15 text-red-400 border-red-500/25',
+    green: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+    amber: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+    cyan: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25',
+    violet: 'bg-violet-500/15 text-violet-400 border-violet-500/25',
+    slate: 'bg-slate-500/15 text-slate-400 border-slate-500/25',
   };
 
   const dotColors = {
-    blue: 'bg-white',
-    red: 'bg-red-500',
-    green: 'bg-brand',
-    amber: 'bg-amber-500',
-    cyan: 'bg-cyan-500',
-    violet: 'bg-violet-500',
-    slate: 'bg-white/40',
+    blue: 'bg-blue-400',
+    red: 'bg-red-400',
+    green: 'bg-emerald-400',
+    amber: 'bg-amber-400',
+    cyan: 'bg-cyan-400',
+    violet: 'bg-violet-400',
+    slate: 'bg-slate-400',
   };
 
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-black uppercase tracking-tighter border ${colors[color]} ${className}`}>
-      {dot && <span className={`w-1 h-1 ${dotColors[color]}`} />}
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[color]} ${className}`}>
+      {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotColors[color]}`} />}
       {children}
     </span>
   );

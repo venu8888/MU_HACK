@@ -22,8 +22,9 @@ app.use((req, res) => {
   res.sendFile(join(__dirname, 'dist', 'index.html'));
 });
 
-// --- Peer Discovery & Signaling ---
+// --- Mesh Data Store ---
 const peers = new Map(); // id -> socketId
+const meshMessages = new Map(); // id -> messageData (Central Store)
 
 io.on('connection', (socket) => {
   console.log(`[Mesh Server] Device connected: ${socket.id}`);
@@ -43,6 +44,26 @@ io.on('connection', (socket) => {
     
     // Notify everyone about the new peer
     io.emit('peers_update', Array.from(peers.keys()));
+    
+    // Send current mesh state to the new device
+    socket.emit('mesh_sync', Array.from(meshMessages.values()));
+  });
+
+  // Handle incoming alerts from devices
+  socket.on('mesh_update', (messages) => {
+    console.log(`[Mesh Server] Received ${messages.length} alerts from ${socket.peerId}`);
+    let newCount = 0;
+    messages.forEach(msg => {
+      if (!meshMessages.has(msg.id)) {
+        meshMessages.set(msg.id, msg);
+        newCount++;
+      }
+    });
+    
+    if (newCount > 0) {
+      console.log(`[Mesh Server] Stored ${newCount} new alerts. Broadcasting...`);
+      io.emit('mesh_sync', Array.from(meshMessages.values()));
+    }
   });
 
   socket.on('signal', ({ to, from, signal }) => {
