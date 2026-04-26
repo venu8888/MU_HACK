@@ -76,12 +76,23 @@ export function buildDropQRUrl(compressedData, hopCount = 0) {
  */
 export function parseDeepLink(url) {
   try {
-    // Handle both pulsemesh:// and standard URL formats
-    const normalized = url.replace('pulsemesh://', 'https://pulsemesh.app/');
-    const parsed = new URL(normalized);
-    const host = parsed.hostname; // 'sync' or 'drop'
+    // Standardize URL parsing
+    const isPulseMesh = url.startsWith('pulsemesh://');
+    let action = '';
+    let parsed;
 
-    if (host === 'sync') {
+    if (isPulseMesh) {
+      // pulsemesh://drop?d=... -> replace with a dummy host so URL() parses it easily
+      const normalized = url.replace('pulsemesh://', 'http://dummy/');
+      parsed = new URL(normalized);
+      action = parsed.pathname.replace('/', ''); // gets 'drop' or 'sync'
+    } else {
+      // For web links like https://venu8888.github.io/MU_HACK/?action=drop
+      parsed = new URL(url);
+      action = parsed.searchParams.get('action');
+    }
+
+    if (action === 'sync') {
       return {
         action: 'sync',
         sessionId: parsed.searchParams.get('id'),
@@ -90,7 +101,7 @@ export function parseDeepLink(url) {
       };
     }
 
-    if (host === 'drop') {
+    if (action === 'drop') {
       return {
         action: 'drop',
         data: parsed.searchParams.get('d'),
