@@ -59,6 +59,8 @@ import { parseDeepLink, syncWithPeerViaHttp } from './lib/sync';
 import { decompressPackets } from './lib/qr';
 import { bulkUpsert } from './lib/db';
 
+import { useAppStore } from './store/useAppStore';
+
 // ── Deep Link Handler ─────────────────────────────────────────────────────────
 // When any camera scans a QR and opens the app (native or web),
 // this listener fires and routes to the correct action.
@@ -75,19 +77,19 @@ export async function handleDeepLink(url) {
   
   console.log('[DeepLink] Received:', url);
 
+  const { addLog, triggerReturnSync, loadMessages } = useAppStore.getState();
+
   if (link.action === 'psync') {
     // Personal QR scanned — import and prepare to send back (Ping-Pong)
     console.log(`[DeepLink] Personal Sync payload received`);
     try {
-      const { useAppStore } = await import('./store/useAppStore');
-      const { addLog, triggerReturnSync } = useAppStore.getState();
       addLog('🔄 Personal QR scanned — processing alerts...', 'info');
       
       if (link.data) {
         const packets = decompressPackets(link.data);
         const result = await bulkUpsert(packets, 1);
         addLog(`✅ Sync Step 1: Imported ${result.imported} alerts.`, 'success');
-        useAppStore.getState().loadMessages?.();
+        loadMessages?.();
       }
       
       // Trigger the UI to show the return QR code
@@ -103,14 +105,12 @@ export async function handleDeepLink(url) {
     // Public Drop QR scanned — import alerts from encoded data
     console.log('[DeepLink] Importing public drop data');
     try {
-      const { useAppStore } = await import('./store/useAppStore');
-      const { addLog } = useAppStore.getState();
       addLog('📦 Public QR scanned — importing alerts...', 'info');
       
       const packets = decompressPackets(link.data);
       const result = await bulkUpsert(packets, link.hops + 1);
       addLog(`✅ Imported ${result.imported} new alerts (hop ${link.hops + 1})`, 'success');
-      useAppStore.getState().loadMessages?.();
+      loadMessages?.();
     } catch (err) {
       console.error('[DeepLink] Drop import failed:', err);
     }
