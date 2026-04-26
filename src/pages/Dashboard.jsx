@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   LayoutDashboard, AlertTriangle, Map, Heart, Newspaper,
   Signal, Plus, RefreshCw, Activity,
+  Database, Zap, ArrowUpRight
 } from 'lucide-react';
 import PageHeader from '../components/ui/PageHeader';
 import StatsCard  from '../components/ui/StatsCard';
@@ -13,7 +14,7 @@ import { useMessages }  from '../hooks/useMessages';
 
 export default function Dashboard() {
   const { forceBroadcast }  = useAppStore();
-  const messages = useMessages(); // reactive — IndexedDB-backed
+  const messages = useMessages();
 
   const alertCount   = messages.filter(p => p.type === 'alert').length;
   const routeCount   = messages.filter(p => p.type === 'safe_route').length;
@@ -21,61 +22,80 @@ export default function Dashboard() {
   const newsCount    = messages.filter(p => p.type === 'news').length;
 
   return (
-    <div className="space-y-5">
-      <PageHeader
-        title="Message Feed"
-        subtitle="Delay-tolerant peer-to-peer network overview"
-        icon={LayoutDashboard}
-        action={
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => forceBroadcast(null, true)}
-              className="p-2 rounded-lg border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-600 transition-all flex items-center gap-1.5"
-              title="Force Sync Broadcast"
-            >
-              <RefreshCw size={14} />
-              <span className="hidden sm:inline text-xs font-medium">Force Sync</span>
-            </button>
-            <Link to="/create">
-              <Button icon={Plus} size="sm">New Message</Button>
-            </Link>
+    <div className="space-y-12">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-white/5 pb-8">
+        <div>
+          <div className="flex items-center gap-2 text-brand mb-2">
+            <Zap size={14} className="animate-pulse" />
+            <span className="text-[10px] font-mono uppercase tracking-[0.4em]">Node_System_01</span>
           </div>
-        }
-      />
-
-      {/* ── Stats ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatsCard icon={AlertTriangle} label="Alerts"  value={alertCount}   subtext="Critical active" color="red"   />
-        <StatsCard icon={Map}           label="Routes"  value={routeCount}   subtext="Safe passages"   color="green" />
-        <StatsCard icon={Heart}         label="Medical" value={medicalCount} subtext="Aid stations"    color="cyan"  />
-        <StatsCard icon={Newspaper}     label="Updates" value={newsCount}    subtext="Community info"  color="amber" />
+          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-white">
+            OVERVIEW
+          </h1>
+          <p className="text-xs text-white/40 uppercase tracking-widest mt-2 max-w-md">
+            P2P Data Propagation active across local mesh interface. 
+            No external server required.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => forceBroadcast(null, true)}
+            className="group flex flex-col items-end"
+          >
+            <span className="text-[8px] font-mono text-white/20 uppercase">Force_Relay</span>
+            <div className="flex items-center gap-2 text-white group-hover:text-brand transition-colors">
+              <span className="text-sm font-black uppercase tracking-widest">SYNC</span>
+              <RefreshCw size={16} className="group-hover:rotate-180 transition-transform duration-500" />
+            </div>
+          </button>
+          <Link to="/create">
+            <button className="bg-brand text-black px-6 py-4 font-black text-sm uppercase tracking-widest flex items-center gap-2 hover:bg-white transition-colors">
+              <Plus size={18} />
+              NEW_MSG
+            </button>
+          </Link>
+        </div>
       </div>
 
-      {/* ── Feed ── */}
-      <Card>
-        <CardHeader className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Signal size={15} className="text-blue-400" />
-            <span className="text-sm font-semibold text-slate-200">Active Propagating Messages</span>
+      {/* ── Grid Stats ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-0 border border-white/10 divide-x divide-white/10">
+        <StatsCard label="ALERT_LVL" value={alertCount}   subtext="Active Threats" color="red"   />
+        <StatsCard label="SAFE_ROUTES" value={routeCount}   subtext="Mapped Paths"   color="green" />
+        <StatsCard label="MED_FACIL" value={medicalCount} subtext="Aid Active"    color="cyan"  />
+        <StatsCard label="NEWS_FEED" value={newsCount}    subtext="Verified"  color="amber" />
+      </div>
+
+      {/* ── Active Feed ── */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="flex items-center gap-3">
+            <Database size={16} className="text-brand" />
+            <h2 className="text-lg font-black uppercase tracking-tighter text-white">DATAPACK_STREAM</h2>
           </div>
-          <span className="text-xs text-slate-500">{messages.length} active</span>
-        </CardHeader>
-        <CardBody className="bg-slate-900/50 p-3 sm:p-4 rounded-b-xl border-t border-slate-700/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {messages.length === 0 ? (
-              <div className="col-span-1 md:col-span-2 text-center py-12 flex flex-col items-center justify-center">
-                <Activity size={32} className="text-slate-600 mb-3" />
-                <h3 className="text-slate-300 font-medium mb-1">No Active Messages</h3>
-                <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                  The local network is quiet. Create a message to broadcast, or sync with a nearby peer.
-                </p>
+          <div className="flex items-center gap-4 text-[10px] font-mono text-white/40">
+            <span>COUNT: {messages.length}</span>
+            <span>BANDWIDTH: 100%</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-white/5 border border-white/5">
+          {messages.length === 0 ? (
+            <div className="col-span-1 md:col-span-2 text-center py-32 bg-bg flex flex-col items-center justify-center">
+              <Activity size={48} className="text-white/5 mb-6" />
+              <h3 className="text-white/20 font-black uppercase tracking-[0.3em] text-sm">No_Data_Detected</h3>
+              <p className="text-white/10 text-[10px] uppercase tracking-widest mt-2">
+                Scan nearby node to begin propagation
+              </p>
+            </div>
+          ) : (
+            messages.map(packet => (
+              <div key={packet.id} className="bg-bg">
+                <PacketCard packet={packet} />
               </div>
-            ) : (
-              messages.map(packet => <PacketCard key={packet.id} packet={packet} />)
-            )}
-          </div>
-        </CardBody>
-      </Card>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }
